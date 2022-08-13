@@ -10,6 +10,7 @@ repository = "https://github.com/vorot93/libmdbx-rs"
 readme = "README.md"
 keywords = ["LMDB", "MDBX", "database", "storage-engine", "bindings"]
 categories = ["database"]
+build = "build.rs"
 
 [lib]
 name = "libmdbx"

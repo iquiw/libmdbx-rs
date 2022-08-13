@@ -8,6 +8,8 @@ use crate::{
 use byteorder::{ByteOrder, NativeEndian};
 use libc::c_uint;
 use mem::size_of;
+#[cfg(not(windows))]
+use std::os::unix::ffi::OsStrExt;
 use std::{
     ffi::CString,
     fmt,
@@ -15,13 +17,14 @@ use std::{
     marker::PhantomData,
     mem,
     ops::{Bound, RangeBounds},
-    os::unix::ffi::OsStrExt,
     path::Path,
     ptr, result,
     sync::mpsc::{sync_channel, SyncSender},
     thread::sleep,
     time::Duration,
 };
+#[cfg(windows)]
+use std::{iter::once, os::windows::ffi::OsStrExt};
 
 mod private {
     use super::*;
@@ -474,11 +477,7 @@ where
                         mdbx_result(ffi::mdbx_env_set_option(env, opt, v))?;
                     }
                 }
-
-                let path = match CString::new(path.as_os_str().as_bytes()) {
-                    Ok(path) => path,
-                    Err(..) => return Err(crate::Error::Invalid),
-                };
+                let path = convert_path_to_cstring(path)?;
                 mdbx_result(ffi::mdbx_env_open(
                     env,
                     path.as_ptr(),
@@ -630,4 +629,29 @@ where
         });
         self
     }
+}
+
+#[cfg(not(windows))]
+fn convert_path_to_cstring(path: &Path) -> Result<CString> {
+    CString::new(path.as_os_str().as_bytes()).map_err(|_| crate::Error::Invalid)
+}
+
+#[cfg(windows)]
+fn convert_path_to_cstring(path: &Path) -> Result<CString> {
+    let wcs = path
+        .as_os_str()
+        .encode_wide()
+        .chain(once(0))
+        .collect::<Vec<u16>>();
+    let size = unsafe { wcstombs(std::ptr::null_mut(), wcs.as_ptr(), 0) };
+    let mut mbs = vec![0u8; size + 1];
+    unsafe {
+        wcstombs(mbs.as_mut_ptr(), wcs.as_ptr(), size + 1);
+    }
+    CString::new(&mbs[..size]).map_err(|_| crate::Error::Invalid)
+}
+
+#[cfg(windows)]
+extern "C" {
+    fn wcstombs(mbstr: *mut u8, wcstr: *const u16, count: libc::size_t) -> libc::size_t;
 }

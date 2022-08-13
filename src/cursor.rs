@@ -12,7 +12,7 @@ use ffi::{
     MDBX_NEXT_MULTIPLE, MDBX_NEXT_NODUP, MDBX_PREV, MDBX_PREV_DUP, MDBX_PREV_MULTIPLE,
     MDBX_PREV_NODUP, MDBX_SET, MDBX_SET_KEY, MDBX_SET_LOWERBOUND, MDBX_SET_RANGE,
 };
-use libc::{c_uint, c_void};
+use libc::c_void;
 use parking_lot::Mutex;
 use std::{borrow::Cow, fmt, marker::PhantomData, mem, ptr, result, sync::Arc};
 
@@ -381,7 +381,7 @@ where
         Key: TableObject<'txn>,
         Value: TableObject<'txn>,
     {
-        IterDup::new(self, ffi::MDBX_NEXT as u32)
+        IterDup::new(self, ffi::MDBX_NEXT as MDBX_cursor_op)
     }
 
     /// Iterate over duplicate database items starting from the beginning of the
@@ -391,7 +391,7 @@ where
         Key: TableObject<'txn>,
         Value: TableObject<'txn>,
     {
-        IterDup::new(self, ffi::MDBX_FIRST as u32)
+        IterDup::new(self, ffi::MDBX_FIRST as MDBX_cursor_op)
     }
 
     /// Iterate over duplicate items in the database starting from the given
@@ -405,7 +405,7 @@ where
         if let Err(error) = res {
             return IterDup::Err(Some(error));
         };
-        IterDup::new(self, ffi::MDBX_GET_CURRENT as u32)
+        IterDup::new(self, ffi::MDBX_GET_CURRENT as MDBX_cursor_op)
     }
 
     /// Iterate over the duplicates of the item in the database with the given key.
@@ -756,7 +756,7 @@ where
         cursor: &'cur mut Cursor<'txn, K>,
 
         /// The first operation to perform when the consumer calls Iter.next().
-        op: c_uint,
+        op: MDBX_cursor_op,
 
         _marker: PhantomData<fn(&'txn (Key, Value))>,
     },
@@ -769,7 +769,7 @@ where
     Value: TableObject<'txn>,
 {
     /// Creates a new iterator backed by the given cursor.
-    fn new(cursor: &'cur mut Cursor<'txn, K>, op: c_uint) -> Self {
+    fn new(cursor: &'cur mut Cursor<'txn, K>, op: MDBX_cursor_op) -> Self {
         IterDup::Ok {
             cursor,
             op,
@@ -808,7 +808,7 @@ where
                     iov_len: 0,
                     iov_base: ptr::null_mut(),
                 };
-                let op = mem::replace(op, ffi::MDBX_NEXT_NODUP as u32);
+                let op = mem::replace(op, ffi::MDBX_NEXT_NODUP as MDBX_cursor_op);
 
                 txn_execute(&*cursor.txn, |_| {
                     let err_code =

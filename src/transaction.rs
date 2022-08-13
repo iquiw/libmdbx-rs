@@ -5,7 +5,7 @@ use crate::{
     flags::{DatabaseFlags, WriteFlags},
     Cursor, Error, Stat, TableObject,
 };
-use ffi::{MDBX_txn_flags_t, MDBX_TXN_RDONLY, MDBX_TXN_READWRITE};
+use ffi::{MDBX_db_flags_t, MDBX_txn_flags_t, MDBX_TXN_RDONLY, MDBX_TXN_READWRITE};
 use indexmap::IndexSet;
 use libc::{c_uint, c_void};
 use parking_lot::Mutex;
@@ -211,7 +211,7 @@ where
                 ffi::mdbx_dbi_flags_ex(txn, db.dbi(), &mut flags, ptr::null_mut())
             }))?;
         }
-        Ok(DatabaseFlags::from_bits_truncate(flags))
+        Ok(DatabaseFlags::from_bits_truncate(flags as MDBX_db_flags_t))
     }
 
     /// Retrieves database statistics.
